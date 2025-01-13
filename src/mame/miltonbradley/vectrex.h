@@ -11,12 +11,14 @@
 #pragma once
 
 #include "machine/6522via.h"
+#include "machine/6850acia.h"	// ACIA Serial port
 #include "sound/dac.h"
 #include "sound/ay8910.h"
 #include "video/vector.h"
 
 #include "bus/vectrex/slot.h"
 #include "bus/vectrex/rom.h"
+#include "bus/rs232/rs232.h"	// ACIA Serial port
 
 #include "screen.h"
 
@@ -31,6 +33,7 @@ protected:
 	vectrex_base_state(const machine_config &mconfig, device_type type, const char *tag) :
 		driver_device(mconfig, type, tag),
 		m_maincpu(*this, "maincpu"),
+		m_acia(*this, "acia"),			// ACIA Serial Port
 		m_cart(*this, "cartslot"),
 		m_via6522_0(*this, "via6522_0"),
 		m_gce_vectorram(*this, "gce_vectorram"),
@@ -83,6 +86,7 @@ protected:
 	unsigned char m_via_out[2];
 
 	required_device<cpu_device> m_maincpu;
+	required_device<acia6850_device> m_acia;		// ACIA Serial Port
 	optional_device<vectrex_cart_slot_device> m_cart;
 
 	double m_imager_freq = 0;

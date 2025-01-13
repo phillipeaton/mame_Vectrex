@@ -330,6 +330,10 @@ void generic_terminal_device::kbd_put(u8 data)
 void generic_terminal_device::device_add_mconfig(machine_config &config)
 {
 	screen_device &screen(SCREEN(config, TERMINAL_SCREEN_TAG, SCREEN_TYPE_RASTER));
+
+	// Set terminal screen from Vectrex vertical to horizontal
+	screen.set_orientation(ROT90);
+
 	screen.set_refresh_hz(50);
 	screen.set_vblank_time(ATTOSECONDS_IN_USEC(2500)); /* not accurate */
 	screen.set_size(generic_terminal_device::TERMINAL_WIDTH*8, generic_terminal_device::TERMINAL_HEIGHT*10);

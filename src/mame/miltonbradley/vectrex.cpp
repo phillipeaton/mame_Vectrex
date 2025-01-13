@@ -15,8 +15,11 @@ Bruce Tomlin (hardware info)
 #include "vectrex.h"
 
 #include "cpu/m6809/m6809.h"
+#include "machine/6850acia.h" // ACIA Serial port
 #include "machine/6522via.h"
 #include "machine/nvram.h"
+#include "machine/clock.h"    // ACIA Serial port
+#include "bus/rs232/rs232.h"  // ACIA Serial port
 #include "sound/ay8910.h"
 #include "video/vector.h"
 
@@ -27,6 +30,7 @@ Bruce Tomlin (hardware info)
 void vectrex_state::vectrex_map(address_map &map)
 {
 	map(0x0000, 0x7fff).noprw(); // cart area, handled at machine_start
+	map(0x8000, 0xbfff).rw("acia", FUNC(acia6850_device::read), FUNC(acia6850_device::write)); // ACIA Serial port
 	map(0xc800, 0xcbff).ram().mirror(0x0400).share("gce_vectorram");
 	map(0xd000, 0xd7ff).rw(FUNC(vectrex_state::via_r), FUNC(vectrex_state::via_w));
 	map(0xe000, 0xffff).rom().region("maincpu", 0);
@@ -97,17 +101,42 @@ void vectrex_base_state::vectrex_cart(device_slot_interface &device)
 	device.option_add_internal("vec_sram",   VECTREX_ROM_SRAM);
 }
 
+// ACIA Serial port, configure our terminal for interactive use
+static DEVICE_INPUT_DEFAULTS_START( terminal )
+	DEVICE_INPUT_DEFAULTS( "RS232_RXBAUD", 0xff, RS232_BAUD_115200 )
+	DEVICE_INPUT_DEFAULTS( "RS232_TXBAUD", 0xff, RS232_BAUD_115200 )
+	DEVICE_INPUT_DEFAULTS( "RS232_DATABITS", 0xff, RS232_DATABITS_8 )
+	DEVICE_INPUT_DEFAULTS( "RS232_PARITY", 0xff, RS232_PARITY_NONE )
+	DEVICE_INPUT_DEFAULTS( "RS232_STOPBITS", 0xff, RS232_STOPBITS_1 )
+DEVICE_INPUT_DEFAULTS_END
+
 void vectrex_base_state::vectrex_base(machine_config &config)
 {
 	MC6809(config, m_maincpu, 6_MHz_XTAL); // 68A09
 
 	/* video hardware */
 	VECTOR(config, m_vector, 0);
+	m_vector->set_screen(m_screen);
 	SCREEN(config, m_screen, SCREEN_TYPE_VECTOR);
 	m_screen->set_refresh_hz(60);
 	m_screen->set_size(400, 300);
 	m_screen->set_visarea(0, 399, 0, 299);
 	m_screen->set_screen_update(FUNC(vectrex_base_state::screen_update));
+
+	// Configure ACIA
+	ACIA6850(config, m_acia, 0);
+	m_acia->txd_handler().set("rs232", FUNC(rs232_port_device::write_txd));
+	m_acia->irq_handler().set("rs232", FUNC(rs232_port_device::write_rts));
+
+    // ACIA uses it's own clock to get usable baud rate, not the Vectrex internal 6MHz crystal
+	clock_device &acia_clock(CLOCK(config, "acia_clock", 7'372'800/4));
+	acia_clock.signal_handler().set("acia", FUNC(acia6850_device::write_txc));
+	acia_clock.signal_handler().append("acia", FUNC(acia6850_device::write_rxc));
+
+	// Configure a "default terminal" to connect to the 6850, so we have a console
+	rs232_port_device &rs232(RS232_PORT(config, "rs232", default_rs232_devices, "terminal"));
+	rs232.rxd_handler().set(m_acia, FUNC(acia6850_device::write_rxd));
+	rs232.set_option_device_input_defaults("terminal", DEVICE_INPUT_DEFAULTS_NAME(terminal));
 
 	/* sound hardware */
 	SPEAKER(config, "speaker").front_center();

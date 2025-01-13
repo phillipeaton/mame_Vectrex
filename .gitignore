@@ -9,7 +9,7 @@
 *.S68
 .DS_Store
 
-/*
+# /*  COMMENT OUT THE /* ELSE TOP LEVEL FILES GET IGNORED WHEN COMPILING
 /*/
 !/.github/
 !/3rdparty/
